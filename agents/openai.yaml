@@ -1,0 +1,4 @@
+interface:
+  display_name: "Guided Review"
+  short_description: "Interactive GitHub PR walkthrough"
+  default_prompt: "Use $guided-review to walk me through this GitHub PR one section at a time, filtering noise and pausing for questions or PR comments."
