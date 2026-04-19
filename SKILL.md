@@ -43,6 +43,33 @@ For each section:
 
 Keep explanations brief and concrete. Preserve enough code context for real review. A section should feel like code review, not like a narrated summary of code the user cannot see.
 
+## False-Positive Check
+
+After drafting the concerns for a section, but before showing the section to the user, verify each concern with an isolated subagent.
+
+1. **Dispatch in parallel.** Spawn one subagent per concern, all in a single message so they run concurrently. Each subagent receives:
+   - the concern text and its current severity
+   - the file path(s) and the code excerpt the concern is about
+   - the relevant diff hunk for that file
+   - an instruction to verify the concern against the actual code, not against assumptions
+
+2. **Structured verdict.** Each subagent returns:
+   - `verdict`: `valid`, `false-positive`, or `uncertain`
+   - `severity`: a suggested severity only if it should change; omit otherwise
+   - `evidence`: one line citing the specific code or behavior that supports the verdict
+
+   If a subagent fails, times out, or cannot make a judgment, treat the concern as `uncertain`.
+
+3. **Apply verdicts before presenting the section.**
+   - `false-positive` → drop the concern. Append a single line at the end of the section: `filtered: <concern summary> (<one-line reason>)`. Group multiple drops into one footer.
+   - `uncertain` → keep the concern, tag it `(unverified)`, keep its original severity.
+   - `valid` with a severity change → keep the concern, annotate it `severity: <original> → <suggested>`, and include the evidence line.
+   - `valid` with no severity change → keep the concern unchanged.
+
+4. **Empty concern lists are fine.** If every concern in a section is filtered out, still show the section's code and explanation. Only the concerns list collapses, replaced by the `filtered:` footer.
+
+The subagent is verifying, not negotiating — it should neither soften real concerns nor raise new ones.
+
 ## Interaction Contract
 
 After presenting a section, stop and wait.
@@ -86,6 +113,7 @@ The comment flow is part of the same review conversation, not a separate mode.
 - avoid speculative, low-confidence, or low-value findings
 - if a section is mostly noise, say so briefly and compress it
 - optimize for signal, pacing, and usefulness over completeness theater
+- run the false-positive check for every section that has concerns; do not skip it for speed
 
 End each section by explicitly waiting for the user, for example:
 `Questions on this section, or should I move to the next one?`
