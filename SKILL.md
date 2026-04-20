@@ -15,8 +15,9 @@ Do not dump the full diff or a one-shot summary unless the user explicitly asks 
 
 ## Workflow
 
-1. Access the PR using whatever GitHub path is available in the current environment.
-If the PR cannot be accessed, say what is missing and stop.
+1. Require a PR URL or explicit guidance for finding one.
+Accept either a direct PR link/identifier or instructions on how to retrieve it (e.g., "the open PR on this branch", "my latest PR in repo X", a `gh` command to run). If neither is provided, ask before doing anything else. Do not silently guess the PR from ambient context.
+Once a URL is resolved, access the PR using whatever GitHub path is available in the current environment. If the PR cannot be accessed, say what is missing and stop.
 
 2. Build a small set of sections based on intent rather than filenames alone.
 Good section boundaries include API shape, data flow, behavior changes, tests, migrations, cleanup, or similar semantic groupings.
@@ -95,11 +96,13 @@ When the user asks to publish a comment:
    - If a related comment exists but the new point adds meaningfully different detail, note the existing comment and extend or differentiate rather than repeating.
    - If no similar comment is found, proceed to publish.
 
-3. **Publish or report.**
-   - If publishing: use the best available GitHub capability in the environment. Confirm briefly what was posted.
+3. **Always preview before publishing.** Show the drafted comment to the user verbatim, along with where it will be posted (file and line range, or top-level), and wait for explicit confirmation. Do not post until the user approves. If the user requests edits, revise and preview again.
+
+4. **Publish or report.**
+   - If publishing (after approval): use the best available GitHub capability in the environment. Confirm briefly what was posted.
    - If skipping due to similarity: tell the user which existing comment already covers the point and quote or summarize it, so the user can decide whether to post anyway.
 
-4. **Stay in position.** Remain at the same review section after publishing unless the user asks to move on.
+5. **Stay in position.** Remain at the same review section after publishing unless the user asks to move on.
 
 The comment flow is part of the same review conversation, not a separate mode.
 
