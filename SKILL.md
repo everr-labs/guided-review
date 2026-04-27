@@ -90,15 +90,18 @@ Do not advance automatically after a section. Keep the review paced by the user.
 When the user asks to publish a comment:
 
 1. **Draft the comment.** Turn the current review point into a concise PR-ready comment. Keep it grounded in the current section.
+   - Inline comments should state the concrete code concern or question directly. Avoid labels, summaries, or meta-commentary such as "Inline question about test coverage".
+   - If the user asks for a terse comment, keep it terse without stripping the specific code context.
 
 2. **Check for similar existing comments.** Before publishing, fetch existing review comments on the PR (inline comments and top-level comments). Compare the drafted comment against them:
    - Skip if an existing comment already covers the same file, function, or line range with substantially the same observation.
    - If a related comment exists but the new point adds meaningfully different detail, note the existing comment and extend or differentiate rather than repeating.
    - If no similar comment is found, proceed to publish.
 
-3. **Always preview before publishing.** Show the drafted comment to the user verbatim, along with where it will be posted (file and line range, or top-level), and wait for explicit confirmation. Do not post until the user approves. If the user requests edits, revise and preview again.
+3. **Always preview before publishing.** Show every visible thing that will be posted: the inline comment body, where it will be posted (file and line range, or top-level), and any review summary/top-level body required by the publishing tool. Wait for explicit confirmation. Do not post until the user approves. If the user requests edits, revise and preview again.
 
 4. **Publish or report.**
+   - If publishing inline comments: prefer a GitHub capability that does not create a top-level review body. If the available tool requires one, make it substantive and user-approved, not a duplicate label or bookkeeping sentence.
    - If publishing (after approval): use the best available GitHub capability in the environment. Confirm briefly what was posted.
    - If skipping due to similarity: tell the user which existing comment already covers the point and quote or summarize it, so the user can decide whether to post anyway.
 
