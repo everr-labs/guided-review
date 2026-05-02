@@ -9,7 +9,9 @@ description: Use when manually reviewing a GitHub pull request with the assistan
 
 Turn a GitHub pull request into a guided conversation. Filter noise, group the meaningful changes into sections, review one section at a time, and pause after each section so the user can ask questions or publish PR comments.
 
-Show the relevant code directly. Prefer clean excerpts of the final code over raw diff hunks. Use a diff only when the exact edit shape is itself important to the review point.
+Show the relevant code directly. For semantic changes where the old behavior is needed to understand the review risk, prefer trimmed unified diff hunks only when the same hunk contains both removals and additions, making the before/after visible in one block. Use clean excerpts of the final code when the post-change code is enough, for addition-only changes, or as supporting context after a diff.
+
+Use simple, beginner-friendly language throughout the review. Favor explanations that a junior developer, or a developer new to the codebase, can understand without knowing project-specific jargon.
 
 Do not dump the full diff or a one-shot summary unless the user explicitly asks for that instead.
 
@@ -17,16 +19,19 @@ Do not dump the full diff or a one-shot summary unless the user explicitly asks 
 
 1. Require a PR URL or explicit guidance for finding one.
 Accept either a direct PR link/identifier or instructions on how to retrieve it (e.g., "the open PR on this branch", "my latest PR in repo X", a `gh` command to run). If neither is provided, ask before doing anything else. Do not silently guess the PR from ambient context.
-Once a URL is resolved, access the PR using whatever GitHub path is available in the current environment. If the PR cannot be accessed, say what is missing and stop.
+Once a URL is resolved, use the available GitHub path only to read PR metadata such as repository, base ref, head ref, head SHA, and existing comments. If the PR metadata cannot be accessed, say what is missing and stop.
 
-2. Build a small set of sections based on intent rather than filenames alone.
+2. Fetch PR content locally and use Git for review data.
+Fetch the base and head refs or SHAs into the local repository without checking them out. Use Git commands and plumbing APIs such as `git diff`, `git show`, `git cat-file`, and `git ls-tree` to list changed files, read before/after blobs, and extract hunks for review sections. Do not gather changed file contents, raw blobs, or diff hunks through the GitHub API, `gh api`, or connector file-content endpoints. If local fetch is unavailable, say what is missing and stop instead of silently falling back to API file reads.
+
+3. Build a small set of sections based on intent rather than filenames alone.
 Good section boundaries include API shape, data flow, behavior changes, tests, migrations, cleanup, or similar semantic groupings.
 
-3. Down-rank or collapse obvious noise.
+4. Down-rank or collapse obvious noise.
 Examples: formatting-only edits, generated output, bulk renames with no behavior change, or other low-signal churn.
 Do not let noise reduction turn the review into prose-only summary. Keep the important code visible.
 
-4. Start the session with a terse map of the review.
+5. Start the session with a terse map of the review.
 List the planned sections in one line each, then begin with the first section.
 
 ## Section Format
@@ -34,15 +39,19 @@ List the planned sections in one line each, then begin with the first section.
 For each section:
 
 - show the relevant code directly
-- default to pristine code excerpts from the post-change file
-- use unified diff hunks only when the exact edit, deletion, or line movement matters
-- trim unrelated lines, but keep the excerpt verbatim and self-contained enough to review
+- prefer trimmed unified diff hunks for semantic edits where the before/after contrast matters and the same hunk contains both removed and added lines
+- include the changed lines plus enough nearby context to understand the behavior or risk
+- use pristine code excerpts from the post-change file when the final code is enough, for addition-only changes, or when they clarify a diff-backed point
+- do not use a diff block for addition-only changes; show the added code as a clean final-code excerpt instead
+- trim unrelated lines, but keep the excerpt or diff verbatim and self-contained enough to review
 - briefly explain what changed
 - briefly explain why it matters or what behavior it affects
 - mention only plausible bugs or improvements that are useful to call out
 - label each concern with a severity such as `high`, `medium`, or `low`
 
 Keep explanations brief and concrete. Preserve enough code context for real review. A section should feel like code review, not like a narrated summary of code the user cannot see.
+
+Prefer diff-first presentation for before/after hunks involving validation or guard conditions, permissions, defaults, data flow, state updates, persistence behavior, error handling, retries, deleted branches, API contracts, migrations, or test assertions whose meaning changed. Collapse formatting-only edits, generated output, broad mechanical renames, import ordering, addition-only changes, and repeated low-signal edits; when a repeated pattern matters, show one representative hunk only if it contains both removals and additions.
 
 ## False-Positive Check
 
@@ -115,7 +124,12 @@ The comment flow is part of the same review conversation, not a separate mode.
 - prefer a few meaningful sections over exhaustive file-by-file narration
 - do not replace the key code with paraphrase when the code itself is what needs review
 - if a review point depends on code, show that code cleanly before explaining it
-- prefer small pristine excerpts over noisy hunks, but prefer noisy hunks over hiding the code entirely
+- prefer trimmed diff hunks over final-code excerpts when old behavior is necessary to understand risk and the hunk contains both removals and additions
+- prefer final-code excerpts for addition-only changes, even when the added code is semantically important
+- prefer final-code excerpts over noisy hunks when the post-change code carries the review point clearly
+- prefer a representative hunk over hiding meaningful before/after behavior entirely
+- do not use GitHub API file reads for review content once PR refs can be fetched locally
+- explain code in simple terms; avoid unexplained jargon, clever phrasing, or assumptions that the reader knows the codebase
 - avoid speculative, low-confidence, or low-value findings
 - if a section is mostly noise, say so briefly and compress it
 - optimize for signal, pacing, and usefulness over completeness theater
