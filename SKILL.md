@@ -1,15 +1,17 @@
 ---
 name: guided-review
-description: Use when manually reviewing a GitHub pull request with the assistant, especially when the user wants noisy changes collapsed, the diff grouped into meaningful sections, brief code-aware explanations, and pauses between sections for questions or PR comments.
+description: Use when the user wants to manually review code step-by-step by splitting the review into sections with pauses between each section.
 ---
 
 # Guided Review
 
 ## Overview
 
-Turn a GitHub pull request into a guided conversation. Filter noise, group the meaningful changes into sections, review one section at a time, and pause after each section so the user can ask questions or publish PR comments.
+Turn a code review into a guided conversation.
 
-Include enough code context for the user to understand the change without asking for missing surrounding lines. For semantic changes where the old behavior is needed to understand the review risk, prefer unified diff hunks only when the same hunk contains both removals and additions, making the before/after visible in one block. Use clean excerpts of the final code when the post-change code is enough, for addition-only changes, or as supporting context after a diff.
+The source can be a GitHub pull request or just a local branch.
+
+Filter noise, group the meaningful changes into sections, review one section at a time, and pause after each section so the user can ask questions or publish PR comments.
 
 Use simple, beginner-friendly language throughout the review. Favor explanations that a junior developer, or a developer new to the codebase, can understand without knowing project-specific jargon.
 
@@ -17,67 +19,31 @@ Do not dump the full diff or a one-shot summary unless the user explicitly asks 
 
 ## Workflow
 
-1. Require a PR URL or explicit guidance for finding one.
-Accept either a direct PR link/identifier or instructions on how to retrieve it (e.g., "the open PR on this branch", "my latest PR in repo X", a `gh` command to run). If neither is provided, ask before doing anything else. Do not silently guess the PR from ambient context.
-Once a URL is resolved, use the available GitHub path only to read PR metadata such as repository, base ref, head ref, head SHA, and existing comments. If the PR metadata cannot be accessed, say what is missing and stop.
+1. If reviewing a Github PR, fetch content locally and use Git for review data.
 
-2. Fetch PR content locally and use Git for review data.
-Fetch the base and head refs or SHAs into the local repository without checking them out. Use Git commands and plumbing APIs such as `git diff`, `git show`, `git cat-file`, and `git ls-tree` to list changed files, read before/after blobs, and extract hunks for review sections. Do not gather changed file contents, raw blobs, or diff hunks through the GitHub API, `gh api`, or connector file-content endpoints. If local fetch is unavailable, say what is missing and stop instead of silently falling back to API file reads.
+2. Build a small set of sections based on intent rather than filenames alone.
+Good section boundaries include API shape, data flow, behavior changes, migrations, cleanup, or similar semantic groupings.
 
-3. Build a small set of sections based on intent rather than filenames alone.
-Good section boundaries include API shape, data flow, behavior changes, tests, migrations, cleanup, or similar semantic groupings.
-
-4. Down-rank obvious noise, but do not hide small changes just because they look cosmetic.
+3. Down-rank obvious noise, but do not hide small changes just because they look cosmetic.
 Safe-to-collapse examples include generated output, broad mechanical renames with no behavior change, import ordering, and repeated edits where one example explains the pattern. Formatting-only edits and small cosmetic fixes are not automatically noise. Show them when they affect user-visible text, layout, docs, test readability, naming clarity, or how easy the code is to understand.
 Do not let noise reduction turn the review into prose-only summary. Keep the important code visible.
 
-5. Start the session with a terse map of the review.
-List the planned sections in one line each, then begin with the first section.
+4. Start the session with a terse map of the review. and ask the user if we should skip any before showing the first one.
+
+5. Begin with the first section
 
 ## Section Format
 
 For each section:
 
-- prefer unified diff hunks for semantic edits where the before/after contrast matters and the same hunk contains both removed and added lines
-- include the changed lines plus enough nearby context to understand the behavior or risk
-- use pristine code excerpts from the post-change file when the final code is enough, for addition-only changes, or when they clarify a diff-backed point
-- do not use a diff block for addition-only changes; show the added code as a clean final-code excerpt instead
-- keep excerpts or diffs verbatim and self-contained enough to review; if unsure whether nearby lines are needed, include them
-- briefly explain what changed
-- briefly explain why it matters or what behavior it affects
+- start with an explaination of what's included in this section, with a list of files we are going to review
+- show the code
+- briefly explain what changed, why it matters or what behavior it affects
 - mention only plausible bugs or improvements that are useful to call out
 - label each concern with a severity such as `high`, `medium`, or `low`
+- for each section show a summary of the test coverage and report the uncovered business logic as scenario list, each one with a severity label
 
 Keep explanations brief and concrete. Preserve enough code context for real review. A section should feel like code review, not like a narrated summary of code the user cannot see.
-
-Prefer diff-first presentation for before/after hunks involving validation or guard conditions, permissions, defaults, data flow, state updates, persistence behavior, error handling, retries, deleted branches, API contracts, migrations, or test assertions whose meaning changed. Collapse generated output, broad mechanical renames, import ordering, and repeated low-signal edits when they carry no review value. Do not automatically collapse formatting-only edits, cosmetic fixes, or addition-only changes; show a small excerpt when the reader needs to see the exact result.
-
-## False-Positive Check
-
-After drafting the concerns for a section, but before showing the section to the user, verify each concern with an isolated subagent.
-
-1. **Dispatch in parallel.** Spawn one subagent per concern, all in a single message so they run concurrently. Each subagent receives:
-   - the concern text and its current severity
-   - the file path(s) and the code excerpt the concern is about
-   - the relevant diff hunk for that file
-   - an instruction to verify the concern against the actual code, not against assumptions
-
-2. **Structured verdict.** Each subagent returns:
-   - `verdict`: `valid`, `false-positive`, or `uncertain`
-   - `severity`: a suggested severity only if it should change; omit otherwise
-   - `evidence`: one line citing the specific code or behavior that supports the verdict
-
-   If a subagent fails, times out, or cannot make a judgment, treat the concern as `uncertain`.
-
-3. **Apply verdicts before presenting the section.**
-   - `false-positive` → drop the concern. Append a single line at the end of the section: `filtered: <concern summary> (<one-line reason>)`. Group multiple drops into one footer.
-   - `uncertain` → keep the concern, tag it `(unverified)`, keep its original severity.
-   - `valid` with a severity change → keep the concern, annotate it `severity: <original> → <suggested>`, and include the evidence line.
-   - `valid` with no severity change → keep the concern unchanged.
-
-4. **Empty concern lists are fine.** If every concern in a section is filtered out, still show the section's code and explanation. Only the concerns list collapses, replaced by the `filtered:` footer.
-
-The subagent is verifying, not negotiating — it should neither soften real concerns nor raise new ones.
 
 ## Interaction Contract
 
